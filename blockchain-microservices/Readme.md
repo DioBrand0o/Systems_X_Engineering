@@ -3,7 +3,7 @@
 Building a production-grade distributed system with microservices architecture.
 
 ## Stack
-Go · Kubernetes · PostgreSQL · RabbitMQ · Terraform
+Rust · Kubernetes · PostgreSQL · RabbitMQ · Terraform
 
 ## Current Phase
 🟡 Architecture & Design
