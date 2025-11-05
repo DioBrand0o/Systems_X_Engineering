@@ -1,4 +1,4 @@
-Resources & Knowledge Base
+## Resources & Knowledge Base
 
 This folder contains my learning notes, pattern studies, and references that inform both projects.
 
