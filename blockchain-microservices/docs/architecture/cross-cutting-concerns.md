@@ -17,7 +17,7 @@
 6. Secrets management (Vault, Sealed Secrets)
 7. RBAC, Network Policies, Firewall
 
-### ⚡ Scalabilité & Résilience
+### Scalabilité & Résilience
 8. Auto-scaling (HPA)
 9. High Availability (multi-AZ, replicas)
 
