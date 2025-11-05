@@ -54,34 +54,3 @@ Check individual folders for architecture decisions and implementation notes.
 [www.linkedin.com/in/zack-bou]
 
 ```
-
----
-
-# 📁 STRUCTURE 
-```
-DevOps/
-├── README.md                          
-│
-├── do-serverless/
-│   └── ...
-│
-├── blockchain-microservices/
-│   └── ...
-│
-└── resources/                       
-    ├── README.md                      
-    ├── architecture-patterns/         
-    │   ├── strategy-pattern.md
-    │   ├── event-sourcing.md
-    │   └── saga-pattern.md
-    ├── books/                         
-    │   ├── clean-architecture.md
-    │   ├── building-microservices.md
-    │   └── site-reliability-engineering.md
-    ├── papers/                        
-    │   ├── raft-consensus.md
-    │   
-    └── references/                    
-        └── curated-links.md
----
-```
