@@ -53,4 +53,3 @@ Check individual folders for architecture decisions and implementation notes.
 
 [www.linkedin.com/in/zack-bou]
 
-```
