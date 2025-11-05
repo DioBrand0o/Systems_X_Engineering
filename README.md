@@ -51,8 +51,7 @@ Check individual folders for architecture decisions and implementation notes.
 
 ## Let's Connect
 
-[www.linkedin.com/in/
-zack-bou]
+[www.linkedin.com/in/zack-bou]
 
 ```
 
@@ -84,3 +83,4 @@ DevOps/
     │   
     └── references/                    
         └── curated-links.md
+---
