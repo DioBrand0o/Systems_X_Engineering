@@ -57,7 +57,7 @@ Le projet est une plateforme engineering. J'ai donc identifié les besoins commu
 6. Secrets management, Vault
 7. Firewall, policies, RBAC
 
-#### ⚡ Scalabilité & Résilience
+#### Scalabilité & Résilience
 8. Auto-scaling (HPA)
 9. High Availability
 
@@ -180,7 +180,7 @@ Ressource super utile : https://andersbrownworth.com/blockchain/
 Je résume :
 
 Hash SHA-256 = empreinte unique du contenu
-Chaînage = chaque bloc contient le hash du bloc précédent
+'Chaînage' = chaque bloc contient le hash du bloc précédent
 Immuabilité = modifier un bloc casse toute la chaîne après lui
 Traçabilité + anonymat = on voit les transactions, pas forcément l'identité
 
