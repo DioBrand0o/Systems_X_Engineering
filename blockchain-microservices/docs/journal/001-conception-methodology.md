@@ -211,8 +211,159 @@ Documentation d'architecture
 
 ---
 
+## Étape 4 : Modélisation de la Base de Données
+
+### Contexte
+Maintenant que j'ai choisi PostgreSQL (ADR-002), je dois concevoir le schéma de données.
+
+### Approche
+Au lieu de coder directement, j'apprends d'abord les contraintes PostgreSQL pour garantir l'intégrité.
+
+**Ressource clé :** https://www.postgresql.org/docs/current/ddl-constraints.html
+
+### Ce que j'ai appris sur les contraintes
+
+**Contraintes = règles de validation automatiques**
+
+Elles forcent un format souhaité, comme des "policies" sur les données.
+
+#### 1. CHECK Constraints
+```sql
+CHECK (difficulty > 0)
+CHECK (block_hash ~ '^[a-fA-F0-9]{64}$')
+```
+- Valide le format AVANT insertion
+- Rejette les données invalides (pas de correction automatique)
+- Exemple : garantit que les hash sont exactement 64 caractères hexadécimaux
+
+#### 2. PRIMARY KEY vs UNIQUE
+
+**PRIMARY KEY :**
+- Garantit l'unicité
+- Ne peut JAMAIS être NULL (implicite)
+- Une seule par table
+- Identifie de manière unique chaque ligne
+
+**UNIQUE :**
+- Garantit l'unicité
+- Peut être NULL (sauf si NOT NULL explicite)
+- Plusieurs colonnes UNIQUE possibles par table
+
+**Dans mon schéma :**
+- `id` = PRIMARY KEY (identifiant technique)
+- `block_hash` = UNIQUE (identifiant métier blockchain)
+
+#### 3. Foreign Keys
+
+**ON DELETE CASCADE :**
+- Supprime automatiquement les lignes liées
+- Dangereux pour une blockchain (brise l'immuabilité)
+
+**ON DELETE RESTRICT :**
+- Empêche la suppression si des lignes sont liées
+- Choix retenu pour protéger l'intégrité
+
+#### 4. Triggers
+
+**Fonction qui s'exécute automatiquement avant/après une action.**
+
+```sql
+CREATE TRIGGER block_immutability
+BEFORE DELETE ON blocks
+FOR EACH ROW
+EXECUTE FUNCTION prevent_block_deletion();
+```
+
+**BEFORE DELETE** = bloque AVANT que le dégât soit fait.
+
+**Pourquoi ?** Une blockchain est immuable → aucun bloc ne peut être supprimé.
+
+### Double protection de l'immuabilité
+
+1. **Trigger** : Empêche TOUTE suppression de blocs (même vides)
+2. **ON DELETE RESTRICT** : Protection supplémentaire si le trigger est désactivé
+
+**Defense in Depth** = plusieurs couches de sécurité.
+
+### Schéma final conçu
+
+**Tables :**
+- `blocks` : stockage des blocs avec contraintes de format
+- `transactions` : transactions liées aux blocs via foreign key
+
+**Éléments clés :**
+- Contraintes CHECK pour validation hash
+- Triggers d'immuabilité (blocks + transactions confirmées)
+- Foreign key avec ON DELETE RESTRICT
+- Genesis block pré-inséré
+- Vues SQL (block_stats, recent_blocks) pour requêtes fréquentes
+
+**Emplacement :** `blockchain-microservices/database/schema.sql`
+
+### Concept important : Les VIEWs
+
+**VIEW = requête SQL sauvegardée (comme une méthode/getter en Rust)**
+
+Pas de duplication des données, juste un raccourci pour une requête complexe.
+
+**Analogie Rust :**
+```rust
+impl Database {
+    // VIEW = cette méthode (calcule à chaque appel)
+    fn block_stats(&self) -> Vec {
+        // Calcule à chaque appel, pas de cache
+    }
+}
+```
+
+**VIEW SQL :**
+```sql
+CREATE VIEW block_stats AS
+SELECT b.id, COUNT(t.id) as transaction_count
+FROM blocks b
+LEFT JOIN transactions t ON t.block_id = b.id
+GROUP BY b.id;
+```
+
+**Avantage :** Code plus lisible, pas de duplication de logique SQL.
+
+**Note :** Pour un cache permanent, il faudrait une MATERIALIZED VIEW (équivalent d'une propriété/field stockée).
+
+### Sécurité : Roles et permissions
+
+**Principe du moindre privilège :**
+- Ne JAMAIS utiliser le superuser `postgres` dans l'application
+- Créer un role avec droits minimaux (SELECT, INSERT uniquement)
+- Stocker les credentials dans un secret manager (Vault, Sealed Secrets)
+
+**Pourquoi ?**
+Si l'app est compromise, l'attaquant ne peut pas faire DROP TABLE ou DELETE.
+
+**Exemple :**
+```sql
+CREATE ROLE blockchain_app WITH LOGIN PASSWORD 'secure_password';
+GRANT SELECT, INSERT ON blocks, transactions TO blockchain_app;
+-- Pas de droit DELETE, UPDATE, DROP
+```
+
+### Ce que je comprends maintenant
+
+- Modélisation de bases de données avec contraintes
+- Différence entre PRIMARY KEY et UNIQUE
+- Triggers pour garantir l'immuabilité
+- VIEWs comme requêtes sauvegardées (0 duplication)
+- Principe de sécurité : moindre privilège
+- Defense in Depth : plusieurs couches de protection
+
+**Statut conception BDD :** ✅ Terminée
+
+**Prochaine étape :** Contrats d'API (OpenAPI)
+
+---
+
 ## Références
 - [The Twelve-Factor App](https://12factor.net/)
 - "Domain-Driven Design" - Eric Evans
 - "Design Patterns" - Gang of Four
 - https://adr.github.io/adr-templates/
+- [PostgreSQL Constraints Documentation](https://www.postgresql.org/docs/current/ddl-constraints.html)
