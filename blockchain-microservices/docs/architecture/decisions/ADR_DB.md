@@ -11,7 +11,7 @@ MongoDB (NoSQL document)
 
 ### Option 1 : PostgreSQL
 **Avantages :**
-- gere les requete complexe 
+- gere les requetes complexe 
 - ACID integité des donneé
 - Relation entre les tables 
 ...
