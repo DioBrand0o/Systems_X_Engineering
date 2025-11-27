@@ -3,6 +3,7 @@
 Building a production-grade distributed system with microservices architecture.
 
 Possible Use Cases (beyond cryptocurrency)
+
 Cybersecurity
 
 - Decentralized identity (DID)
