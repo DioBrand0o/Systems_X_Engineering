@@ -355,7 +355,7 @@ GRANT SELECT, INSERT ON blocks, transactions TO blockchain_app;
 - Principe de sécurité : moindre privilège
 - Defense in Depth : plusieurs couches de protection
 
-**Statut conception BDD :** ✅ Terminée
+**Statut conception BDD :** Terminée
 
 **Prochaine étape :** Contrats d'API (OpenAPI)
 
