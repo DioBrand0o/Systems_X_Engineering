@@ -1,0 +1,443 @@
+openapi: 3.0.0
+info:
+  title: API Gateway - Blockchain Microservices
+  version: 1.0.0
+  description: |
+    Point d'entrée pour l'authentification et la soumission de transactions.
+    
+    **Fonctionnalités principales:**
+    - Authentification JWT
+    - Soumission de transactions
+    - Consultation de transactions
+    - Consultation de la blockchain publique
+  contact:
+    name: Zack Bou
+    url: https://github.com/DioBrand0o/systems-engineering-portfolio
+
+servers:
+  - url: http://localhost:8080
+    description: Environnement de développement local
+  - url: https://api.blockchain.example.com
+    description: Production
+
+tags:
+  - name: Authentication
+    description: Authentification et gestion des tokens JWT
+  - name: Transactions
+    description: Soumission et consultation de transactions
+  - name: Blocks
+    description: Consultation de la blockchain publique
+
+paths:
+  /auth/login:
+    post:
+      summary: Authentification utilisateur
+      description: |
+        Permet à un utilisateur de se connecter avec ses identifiants
+        et d'obtenir un token JWT pour les requêtes authentifiées.
+      tags:
+        - Authentication
+      operationId: login
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/LoginRequest'
+      responses:
+        '200':
+          description: Authentification réussie
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/LoginResponse'
+        '401':
+          description: Identifiants invalides
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+
+  /transactions:
+    post:
+      summary: Soumettre une transaction
+      description: |
+        Crée une nouvelle transaction qui sera publiée dans RabbitMQ
+        (queue: transaction.pending) pour être minée par le Miner Service.
+      tags:
+        - Transactions
+      operationId: createTransaction
+      security:
+        - BearerAuth: []
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/TransactionRequest'
+      responses:
+        '201':
+          description: Transaction créée avec succès
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/TransactionResponse'
+        '400':
+          description: Données invalides
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+        '401':
+          description: Non authentifié
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+
+    get:
+      summary: Consulter ses transactions
+      description: |
+        Récupère la liste des transactions de l'utilisateur authentifié.
+        Supporte le filtrage par statut et la pagination.
+      tags:
+        - Transactions
+      operationId: listTransactions
+      security:
+        - BearerAuth: []
+      parameters:
+        - name: status
+          in: query
+          required: false
+          schema:
+            type: string
+            enum: [pending, confirmed, failed]
+          description: Filtrer par statut de transaction
+        - name: limit
+          in: query
+          required: false
+          schema:
+            type: integer
+            minimum: 1
+            maximum: 100
+            default: 20
+          description: Nombre maximum de résultats à retourner
+        - name: offset
+          in: query
+          required: false
+          schema:
+            type: integer
+            minimum: 0
+            default: 0
+          description: Nombre de résultats à sauter (pagination)
+      responses:
+        '200':
+          description: Liste des transactions
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  $ref: '#/components/schemas/Transaction'
+        '401':
+          description: Non authentifié
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+
+  /blocks:
+    get:
+      summary: Consulter les blocs de la blockchain
+      description: |
+        Récupère la liste des blocs minés. Cet endpoint est public
+        (pas d'authentification requise) car la blockchain est transparente.
+      tags:
+        - Blocks
+      operationId: listBlocks
+      parameters:
+        - name: limit
+          in: query
+          required: false
+          schema:
+            type: integer
+            minimum: 1
+            maximum: 100
+            default: 20
+          description: Nombre maximum de blocs à retourner
+        - name: sort
+          in: query
+          required: false
+          schema:
+            type: string
+            enum: [asc, desc]
+            default: desc
+          description: |
+            Ordre de tri:
+            - asc: du plus ancien au plus récent
+            - desc: du plus récent au plus ancien
+      responses:
+        '200':
+          description: Liste des blocs
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  $ref: '#/components/schemas/Block'
+
+  /health:
+    get:
+      summary: Health check
+      description: Vérifie si le service est opérationnel (Kubernetes liveness probe)
+      tags:
+        - Monitoring
+      operationId: healthCheck
+      responses:
+        '200':
+          description: Service opérationnel
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  status:
+                    type: string
+                    example: "healthy"
+
+  /ready:
+    get:
+      summary: Readiness check
+      description: |
+        Vérifie si le service est prêt à recevoir du trafic
+        (Kubernetes readiness probe)
+      tags:
+        - Monitoring
+      operationId: readinessCheck
+      responses:
+        '200':
+          description: Service prêt
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  status:
+                    type: string
+                    example: "ready"
+        '503':
+          description: "Service pas prêt (ex: RabbitMQ déconnecté)"
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  status:
+                    type: string
+                    example: "not ready"
+
+  /metrics:
+    get:
+      summary: Prometheus metrics
+      description: Expose les métriques au format Prometheus
+      tags:
+        - Monitoring
+      operationId: metrics
+      responses:
+        '200':
+          description: Métriques Prometheus
+          content:
+            text/plain:
+              schema:
+                type: string
+                example: |
+                  # HELP api_gateway_requests_total Total number of requests
+                  # TYPE api_gateway_requests_total counter
+                  api_gateway_requests_total{method="POST",endpoint="/transactions"} 42
+
+components:
+  securitySchemes:
+    BearerAuth:
+      type: http
+      scheme: bearer
+      bearerFormat: JWT
+      description: |
+        Token JWT obtenu via /auth/login.
+        
+        Format du header: `Authorization: Bearer <token>`
+
+  schemas:
+    LoginRequest:
+      type: object
+      required:
+        - username
+        - password
+      properties:
+        username:
+          type: string
+          minLength: 3
+          maxLength: 50
+          example: "alice"
+        password:
+          type: string
+          format: password
+          minLength: 8
+          example: "secret123"
+
+    LoginResponse:
+      type: object
+      properties:
+        token:
+          type: string
+          description: Token JWT pour l'authentification
+          example: "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJzdWIiOiJhbGljZSIsImlhdCI6MTYzOTU4NzYwMCwiZXhwIjoxNjM5NTkxMjAwfQ.signature"
+        expires_at:
+          type: string
+          format: date-time
+          description: Date d'expiration du token
+          example: "2024-11-14T12:00:00Z"
+
+    TransactionRequest:
+      type: object
+      required:
+        - sender
+        - recipient
+        - amount
+      properties:
+        sender:
+          type: string
+          minLength: 3
+          maxLength: 255
+          description: Adresse de l'émetteur
+          example: "alice"
+        recipient:
+          type: string
+          minLength: 3
+          maxLength: 255
+          description: Adresse du destinataire
+          example: "bob"
+        amount:
+          type: number
+          format: double
+          minimum: 0.00000001
+          description: Montant à transférer (précision 8 décimales)
+          example: 10.5
+
+    TransactionResponse:
+      type: object
+      properties:
+        tx_hash:
+          type: string
+          pattern: '^[a-fA-F0-9]{64}$'
+          description: Hash SHA-256 de la transaction
+          example: "abc123def456789abc123def456789abc123def456789abc123def456789abcd"
+        status:
+          type: string
+          enum: [pending, confirmed, failed]
+          description: |
+            Statut de la transaction:
+            - pending: en attente de mining
+            - confirmed: minée et validée
+            - failed: échec de validation
+          example: "pending"
+        created_at:
+          type: string
+          format: date-time
+          description: Horodatage de création
+          example: "2024-11-14T10:30:00Z"
+
+    Transaction:
+      type: object
+      properties:
+        id:
+          type: integer
+          format: int64
+          description: Identifiant unique (base de données)
+          example: 1
+        tx_hash:
+          type: string
+          pattern: '^[a-fA-F0-9]{64}$'
+          description: Hash SHA-256 de la transaction
+          example: "abc123def456789abc123def456789abc123def456789abc123def456789abcd"
+        sender:
+          type: string
+          description: Adresse de l'émetteur
+          example: "alice"
+        recipient:
+          type: string
+          description: Adresse du destinataire
+          example: "bob"
+        amount:
+          type: number
+          format: double
+          description: Montant transféré
+          example: 10.5
+        status:
+          type: string
+          enum: [pending, confirmed, failed]
+          example: "confirmed"
+        created_at:
+          type: string
+          format: date-time
+          example: "2024-11-14T10:30:00Z"
+        block_id:
+          type: integer
+          format: int64
+          nullable: true
+          description: ID du bloc contenant cette transaction (null si pending)
+          example: 5
+
+    Block:
+      type: object
+      properties:
+        id:
+          type: integer
+          format: int64
+          description: Identifiant unique du bloc
+          example: 2
+        block_hash:
+          type: string
+          pattern: '^[a-fA-F0-9]{64}$'
+          description: Hash SHA-256 du bloc
+          example: "0000def456789abc123def456789abc123def456789abc123def456789abcdef"
+        previous_hash:
+          type: string
+          pattern: '^[a-fA-F0-9]{64}$'
+          description: Hash du bloc précédent (chaînage)
+          example: "0000abc123456def789abc123456def789abc123456def789abc123456defabc"
+        nonce:
+          type: integer
+          format: int64
+          description: Nonce utilisé pour le mining (Proof of Work)
+          example: 45678
+        difficulty:
+          type: integer
+          description: Difficulté du mining (nombre de zéros requis)
+          example: 4
+        timestamp:
+          type: string
+          format: date-time
+          description: Horodatage de création du bloc
+          example: "2024-11-14T11:00:00Z"
+        mined_by:
+          type: string
+          description: Identifiant du mineur
+          example: "miner_node_1"
+        transaction_count:
+          type: integer
+          description: Nombre de transactions dans ce bloc
+          example: 3
+
+    Error:
+      type: object
+      required:
+        - error
+      properties:
+        error:
+          type: string
+          description: Message d'erreur
+          example: "Invalid credentials"
+        code:
+          type: string
+          description: Code d'erreur (optionnel)
+          example: "AUTH_FAILED"
