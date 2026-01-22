@@ -346,18 +346,107 @@ GRANT SELECT, INSERT ON blocks, transactions TO blockchain_app;
 -- Pas de droit DELETE, UPDATE, DROP
 ```
 
+## Étape 5 : Contrats d'API (OpenAPI)
+
+### Détour : Révision des fondamentaux cryptographiques
+
+Avant de définir les contrats d'API, j'ai pris le temps de réviser les bases de la cryptographie pour mieux comprendre les mécanismes sous-jacents de la blockchain.
+
+**Parcours d'apprentissage :**
+
+Point de départ : Compréhension basique → Formules modulo → Diffie-Hellman
+
+**Concepts étudiés :**
+- Chiffrements par flux et par blocs
+- Fonctions de hachage (SHA-256)
+- HMAC : Hash-based Message Authentication Code
+- Rappels mathématiques & notations (arithmétique modulaire)
+- DLP : Problème du Logarithme Discret
+- DH : Diffie Hellman (échange de clés)
+- El Gamal & RSA (chiffrement asymétrique)
+- ECC : Cryptographie sur Courbes Elliptiques
+- ECDLP : Problème du logarithme discret sur courbes elliptiques
+- ECDH : Diffie Hellman sur Courbes Elliptiques
+- EC El Gamal
+- ECDSA : Elliptic Curve Digital Signature Algorithm
+- TLS : Transport Layer Security
+
+**Pourquoi c'est pertinent ?**
+
+La blockchain utilise SHA-256 pour le hashing des blocs, ECDSA pour les signatures de transactions, et ces concepts sont essentiels pour comprendre la sécurité du système.
+
+---
+
+### Conception des contrats d'API
+
+**Outil utilisé :** OpenAPI 3.0.0 (via Swagger Editor)
+
+**Approche :** Définir les endpoints REST avant d'écrire le code Rust.
+
+**Tests :** https://editor.swagger.io/ pour valider la syntaxe YAML et visualiser l'interface interactive.
+
+### Architecture des 3 microservices
+
+**1. API Gateway (7 endpoints)**
+- Authentification JWT
+- Soumission et consultation de transactions
+- Consultation de la blockchain (endpoint public)
+- Endpoints d'observabilité (health, ready, metrics)
+
+**2. Miner Service (3 endpoints)**
+- Pas d'endpoints utilisateur (fonctionne en arrière-plan via RabbitMQ)
+- Uniquement observabilité pour Kubernetes et Prometheus
+
+**3. Node Service (6 endpoints)**
+- Consultation détaillée de la blockchain
+- Validation et stockage dans PostgreSQL
+- Endpoints d'observabilité
+
+### Apprentissages clés
+
+**Structure OpenAPI :**
+- Syntaxe YAML avec pièges à éviter (`:` dans les strings nécessitent des guillemets)
+- Réutilisation des schemas avec `$ref` (principe DRY)
+- Codes HTTP (200 vs 201, 401 vs 403, 503)
+- Query parameters (`?status=pending`) vs Path parameters (`/{block_hash}`)
+- Validation avec `enum` et `pattern` (regex)
+- Sécurité JWT avec `BearerAuth`
+
+**Décision architecturale :**
+1 fichier OpenAPI par service (pas par endpoint) pour cohérence et facilité de maintenance.
+
+**Emplacement :** `/api/` à la racine (symétrie avec `/database/`)
+```
+api/
+├── api-gateway.yaml
+├── miner-service.yaml
+├── node-service.yaml
+└── README.md
+```
+
+### Flux de communication complet
+```
+User → API Gateway (POST /transactions)
+     → RabbitMQ (queue: transaction.pending)
+     → Miner Service (Proof of Work)
+     → RabbitMQ (queue: block.mined)
+     → Node Service (validation + PostgreSQL)
+```
+
 ### Ce que je comprends maintenant
 
-- Modélisation de bases de données avec contraintes
-- Différence entre PRIMARY KEY et UNIQUE
-- Triggers pour garantir l'immuabilité
-- VIEWs comme requêtes sauvegardées (0 duplication)
-- Principe de sécurité : moindre privilège
-- Defense in Depth : plusieurs couches de protection
+- Modélisation d'APIs REST avec OpenAPI
+- Différence entre codes HTTP (200 OK vs 201 Created)
+- Distinction query parameters vs path parameters
+- Réutilisation de schemas (`$ref`) pour éviter la duplication
+- Sécurité JWT (BearerAuth)
+- Importance des endpoints d'observabilité (production-ready)
+- Syntaxe YAML et ses pièges
+- Principe : 1 service = 1 contrat OpenAPI
 
-**Statut conception BDD :** Terminée
+**Statut conception API :** Terminée
 
-**Prochaine étape :** Contrats d'API (OpenAPI)
+**Prochaine étape :** DAG de dépendances (ordre de déploiement des composants)
 
 ---
 
@@ -367,3 +456,5 @@ GRANT SELECT, INSERT ON blocks, transactions TO blockchain_app;
 - "Design Patterns" - Gang of Four
 - https://adr.github.io/adr-templates/
 - [PostgreSQL Constraints Documentation](https://www.postgresql.org/docs/current/ddl-constraints.html)
+- [OpenAPI 3.0 Specification](https://swagger.io/specification/)
+- [Swagger Editor](https://editor.swagger.io/)
