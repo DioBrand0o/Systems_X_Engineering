@@ -1,0 +1,108 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<svg xmlns="http://www.w3.org/2000/svg" width="1000" height="700" viewBox="0 0 1000 700">
+  <defs>
+    <style>
+      .infra { fill: #e1f5ff; stroke: #01579b; stroke-width: 2; }
+      .app { fill: #f3e5f5; stroke: #4a148c; stroke-width: 2; }
+      .obs { fill: #fff3e0; stroke: #e65100; stroke-width: 2; }
+      .arrow { fill: none; stroke: #666; stroke-width: 2; marker-end: url(#arrowhead); }
+      .text { font-family: Arial, sans-serif; font-size: 14px; text-anchor: middle; }
+      .label { font-size: 11px; fill: #666; }
+    </style>
+    <marker id="arrowhead" markerWidth="10" markerHeight="10" refX="9" refY="3" orient="auto">
+      <polygon points="0 0, 10 3, 0 6" fill="#666" />
+    </marker>
+  </defs>
+  
+  <!-- Title -->
+  <text x="500" y="30" class="text" style="font-size: 20px; font-weight: bold;">Blockchain Microservices - Dependency Graph</text>
+  
+  <!-- Level 0: Infrastructure -->
+  <text x="50" y="80" class="text" style="font-size: 12px; text-anchor: start;">Level 0: Infrastructure</text>
+  
+  <rect x="100" y="100" width="150" height="80" rx="5" class="infra"/>
+  <text x="175" y="130" class="text">PostgreSQL</text>
+  <text x="175" y="150" class="text" style="font-size: 12px;">Database</text>
+  
+  <rect x="350" y="100" width="150" height="80" rx="5" class="infra"/>
+  <text x="425" y="130" class="text">RabbitMQ</text>
+  <text x="425" y="150" class="text" style="font-size: 12px;">Message Broker</text>
+  
+  <!-- Level 1: Application -->
+  <text x="50" y="250" class="text" style="font-size: 12px; text-anchor: start;">Level 1: Application Services</text>
+  
+  <rect x="50" y="280" width="150" height="80" rx="5" class="app"/>
+  <text x="125" y="310" class="text">API Gateway</text>
+  <text x="125" y="330" class="text" style="font-size: 12px;">Port: 8080</text>
+  
+  <rect x="250" y="280" width="150" height="80" rx="5" class="app"/>
+  <text x="325" y="310" class="text">Miner Service</text>
+  <text x="325" y="330" class="text" style="font-size: 12px;">Port: 8081</text>
+  
+  <rect x="450" y="280" width="150" height="80" rx="5" class="app"/>
+  <text x="525" y="310" class="text">Node Service</text>
+  <text x="525" y="330" class="text" style="font-size: 12px;">Port: 8082</text>
+  
+  <!-- Level 2: Observability -->
+  <text x="50" y="430" class="text" style="font-size: 12px; text-anchor: start;">Level 2: Observability</text>
+  
+  <rect x="150" y="460" width="150" height="80" rx="5" class="obs"/>
+  <text x="225" y="490" class="text">Prometheus</text>
+  <text x="225" y="510" class="text" style="font-size: 12px;">Metrics Collection</text>
+  
+  <rect x="400" y="460" width="150" height="80" rx="5" class="obs"/>
+  <text x="475" y="490" class="text">Grafana</text>
+  <text x="475" y="510" class="text" style="font-size: 12px;">Dashboards</text>
+  
+  <!-- Arrows: Infrastructure to Application -->
+  <!-- PostgreSQL to Node Service -->
+  <path d="M 200 180 L 520 280" class="arrow"/>
+  <text x="360" y="225" class="label">stores blocks</text>
+  
+  <!-- RabbitMQ to API Gateway -->
+  <path d="M 400 180 L 150 280" class="arrow"/>
+  <text x="270" y="225" class="label">transaction.pending</text>
+  
+  <!-- RabbitMQ to Miner Service -->
+  <path d="M 425 180 L 325 280" class="arrow"/>
+  
+  <!-- RabbitMQ to Node Service -->
+  <path d="M 450 180 L 540 280" class="arrow"/>
+  <text x="495" y="225" class="label">block.mined</text>
+  
+  <!-- Arrows: Application to Observability -->
+  <!-- API Gateway to Prometheus -->
+  <path d="M 125 360 L 200 460" class="arrow"/>
+  <text x="160" y="410" class="label">/metrics</text>
+  
+  <!-- Miner Service to Prometheus -->
+  <path d="M 300 360 L 225 460" class="arrow"/>
+  
+  <!-- Node Service to Prometheus -->
+  <path d="M 520 360 L 250 460" class="arrow"/>
+  
+  <!-- Prometheus to Grafana -->
+  <path d="M 300 500 L 400 500" class="arrow"/>
+  <text x="350" y="495" class="label">data source</text>
+  
+  <!-- Legend -->
+  <text x="700" y="120" class="text" style="font-size: 14px; font-weight: bold; text-anchor: start;">Legend</text>
+  <rect x="700" y="140" width="80" height="30" rx="3" class="infra"/>
+  <text x="790" y="160" class="text" style="text-anchor: start;">Infrastructure</text>
+  
+  <rect x="700" y="180" width="80" height="30" rx="3" class="app"/>
+  <text x="790" y="200" class="text" style="text-anchor: start;">Application</text>
+  
+  <rect x="700" y="220" width="80" height="30" rx="3" class="obs"/>
+  <text x="790" y="240" class="text" style="text-anchor: start;">Observability</text>
+  
+  <!-- Deployment Order Info -->
+  <text x="700" y="300" class="text" style="font-size: 14px; font-weight: bold; text-anchor: start;">Deployment Order</text>
+  <text x="700" y="325" style="font-size: 12px; text-anchor: start;">1. PostgreSQL + RabbitMQ</text>
+  <text x="700" y="345" style="font-size: 12px; text-anchor: start;">2. All app services (parallel)</text>
+  <text x="700" y="365" style="font-size: 12px; text-anchor: start;">3. Prometheus + Grafana</text>
+  
+  <!-- Notes -->
+  <text x="50" y="620" style="font-size: 11px; text-anchor: start; fill: #999;">Note: Services at the same level can be deployed in parallel</text>
+  <text x="50" y="640" style="font-size: 11px; text-anchor: start; fill: #999;">Services communicate asynchronously via RabbitMQ (no direct dependencies)</text>
+</svg>
