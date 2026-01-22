@@ -1,0 +1,157 @@
+openapi: 3.0.0
+info:
+  title: Miner Service - Blockchain Microservices
+  version: 1.0.0
+  description: |
+    Service de mining pour la blockchain (Proof of Work).
+    
+    **Fonctionnalités principales:**
+    - Écoute RabbitMQ (queue: transaction.pending)
+    - Mine des blocs avec Proof of Work (SHA-256)
+    - Publie les blocs minés dans RabbitMQ (queue: block.mined)
+    
+    **Note:** Ce service n'expose pas d'endpoints utilisateur.
+    Il fonctionne en arrière-plan via RabbitMQ.
+  contact:
+    name: Zack Bou
+    url: https://github.com/DioBrand0o/systems-engineering-portfolio
+
+servers:
+  - url: http://localhost:8081
+    description: Environnement de développement local
+  - url: https://miner.blockchain.example.com
+    description: Production
+
+tags:
+  - name: Monitoring
+    description: Endpoints d'observabilité pour Kubernetes et Prometheus
+
+paths:
+  /health:
+    get:
+      summary: Health check
+      description: |
+        Vérifie si le service est opérationnel.
+        Utilisé par Kubernetes liveness probe.
+      tags:
+        - Monitoring
+      operationId: healthCheck
+      responses:
+        '200':
+          description: Service opérationnel
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/HealthStatus'
+        '500':
+          description: Service en erreur
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/HealthStatus'
+
+  /ready:
+    get:
+      summary: Readiness check
+      description: |
+        Vérifie si le service est prêt à traiter des messages RabbitMQ.
+        Utilisé par Kubernetes readiness probe.
+        
+        Le service est "ready" si:
+        - Connexion RabbitMQ établie
+        - Queue "transaction.pending" accessible
+      tags:
+        - Monitoring
+      operationId: readinessCheck
+      responses:
+        '200':
+          description: Service prêt
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ReadinessStatus'
+        '503':
+          description: "Service pas prêt (ex: RabbitMQ déconnecté)"
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ReadinessStatus'
+
+  /metrics:
+    get:
+      summary: Prometheus metrics
+      description: |
+        Expose les métriques au format Prometheus.
+        
+        **Métriques exposées:**
+        - miner_blocks_mined_total: Nombre de blocs minés
+        - miner_mining_duration_seconds: Temps de mining par bloc
+        - miner_transactions_processed_total: Nombre de transactions traitées
+        - miner_rabbitmq_messages_consumed_total: Messages RabbitMQ consommés
+      tags:
+        - Monitoring
+      operationId: metrics
+      responses:
+        '200':
+          description: Métriques Prometheus
+          content:
+            text/plain:
+              schema:
+                type: string
+                example: |
+                  # HELP miner_blocks_mined_total Number of blocks mined
+                  # TYPE miner_blocks_mined_total counter
+                  miner_blocks_mined_total 42
+                  
+                  # HELP miner_mining_duration_seconds Time to mine a block
+                  # TYPE miner_mining_duration_seconds histogram
+                  miner_mining_duration_seconds_bucket{le="1.0"} 5
+                  miner_mining_duration_seconds_bucket{le="5.0"} 30
+                  miner_mining_duration_seconds_bucket{le="10.0"} 42
+                  miner_mining_duration_seconds_sum 245.6
+                  miner_mining_duration_seconds_count 42
+
+components:
+  schemas:
+    HealthStatus:
+      type: object
+      required:
+        - status
+      properties:
+        status:
+          type: string
+          enum: [healthy, unhealthy]
+          description: État de santé du service
+          example: "healthy"
+        timestamp:
+          type: string
+          format: date-time
+          description: Horodatage du check
+          example: "2024-11-14T12:00:00Z"
+
+    ReadinessStatus:
+      type: object
+      required:
+        - status
+      properties:
+        status:
+          type: string
+          enum: [ready, not_ready]
+          description: État de préparation du service
+          example: "ready"
+        checks:
+          type: object
+          description: Détails des vérifications
+          properties:
+            rabbitmq:
+              type: string
+              enum: [connected, disconnected]
+              example: "connected"
+            queue_accessible:
+              type: boolean
+              example: true
+        timestamp:
+          type: string
+          format: date-time
+          description: Horodatage du check
+          example: "2024-11-14T12:00:00Z"
