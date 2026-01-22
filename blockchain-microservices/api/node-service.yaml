@@ -1,0 +1,419 @@
+openapi: 3.0.0
+info:
+  title: Node Service - Blockchain Microservices
+  version: 1.0.0
+  description: |
+    Service de validation et stockage de la blockchain.
+    
+    **Fonctionnalités principales:**
+    - Écoute RabbitMQ (queue: block.mined)
+    - Valide les blocs minés
+    - Stocke dans PostgreSQL
+    - Expose la blockchain pour consultation publique
+  contact:
+    name: Zack Bou
+    url: https://github.com/DioBrand0o/systems-engineering-portfolio
+
+servers:
+  - url: http://localhost:8082
+    description: Environnement de développement local
+  - url: https://node.blockchain.example.com
+    description: Production
+
+tags:
+  - name: Blocks
+    description: Consultation de la blockchain
+  - name: Transactions
+    description: Consultation des transactions
+  - name: Monitoring
+    description: Endpoints d'observabilité pour Kubernetes et Prometheus
+
+paths:
+  /blocks:
+    get:
+      summary: Lister les blocs
+      description: |
+        Récupère la liste des blocs de la blockchain.
+        Endpoint public (pas d'authentification requise).
+        
+        Supporte la pagination et le tri.
+      tags:
+        - Blocks
+      operationId: listBlocks
+      parameters:
+        - name: limit
+          in: query
+          required: false
+          schema:
+            type: integer
+            minimum: 1
+            maximum: 100
+            default: 20
+          description: Nombre maximum de blocs à retourner
+        - name: offset
+          in: query
+          required: false
+          schema:
+            type: integer
+            minimum: 0
+            default: 0
+          description: Nombre de blocs à sauter (pagination)
+        - name: sort
+          in: query
+          required: false
+          schema:
+            type: string
+            enum: [asc, desc]
+            default: desc
+          description: |
+            Ordre de tri:
+            - asc: du plus ancien au plus récent
+            - desc: du plus récent au plus ancien
+      responses:
+        '200':
+          description: Liste des blocs
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  blocks:
+                    type: array
+                    items:
+                      $ref: '#/components/schemas/BlockSummary'
+                  total:
+                    type: integer
+                    description: Nombre total de blocs
+                    example: 156
+                  limit:
+                    type: integer
+                    example: 20
+                  offset:
+                    type: integer
+                    example: 0
+
+  /blocks/{block_hash}:
+    get:
+      summary: Consulter un bloc spécifique
+      description: |
+        Récupère les détails complets d'un bloc par son hash.
+        Inclut la liste des transactions contenues dans le bloc.
+      tags:
+        - Blocks
+      operationId: getBlockByHash
+      parameters:
+        - name: block_hash
+          in: path
+          required: true
+          schema:
+            type: string
+            pattern: '^[a-fA-F0-9]{64}$'
+          description: Hash SHA-256 du bloc (64 caractères hexadécimaux)
+          example: "0000abc123456def789abc123456def789abc123456def789abc123456defabc"
+      responses:
+        '200':
+          description: Détails du bloc
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/BlockDetail'
+        '404':
+          description: Bloc non trouvé
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+
+  /transactions/{tx_hash}:
+    get:
+      summary: Consulter une transaction spécifique
+      description: |
+        Récupère les détails d'une transaction par son hash.
+        Inclut l'ID du bloc contenant la transaction (si confirmée).
+      tags:
+        - Transactions
+      operationId: getTransactionByHash
+      parameters:
+        - name: tx_hash
+          in: path
+          required: true
+          schema:
+            type: string
+            pattern: '^[a-fA-F0-9]{64}$'
+          description: Hash SHA-256 de la transaction (64 caractères hexadécimaux)
+          example: "abc123def456789abc123def456789abc123def456789abc123def456789abcd"
+      responses:
+        '200':
+          description: Détails de la transaction
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/TransactionDetail'
+        '404':
+          description: Transaction non trouvée
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+
+  /health:
+    get:
+      summary: Health check
+      description: |
+        Vérifie si le service est opérationnel.
+        Utilisé par Kubernetes liveness probe.
+      tags:
+        - Monitoring
+      operationId: healthCheck
+      responses:
+        '200':
+          description: Service opérationnel
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/HealthStatus'
+        '500':
+          description: Service en erreur
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/HealthStatus'
+
+  /ready:
+    get:
+      summary: Readiness check
+      description: |
+        Vérifie si le service est prêt à traiter des requêtes.
+        Utilisé par Kubernetes readiness probe.
+        
+        Le service est "ready" si:
+        - Connexion PostgreSQL établie
+        - Connexion RabbitMQ établie
+        - Queue "block.mined" accessible
+      tags:
+        - Monitoring
+      operationId: readinessCheck
+      responses:
+        '200':
+          description: Service prêt
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ReadinessStatus'
+        '503':
+          description: "Service pas prêt (ex: PostgreSQL déconnecté)"
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ReadinessStatus'
+
+  /metrics:
+    get:
+      summary: Prometheus metrics
+      description: |
+        Expose les métriques au format Prometheus.
+        
+        **Métriques exposées:**
+        - node_blocks_validated_total: Nombre de blocs validés
+        - node_blocks_rejected_total: Nombre de blocs rejetés
+        - node_transactions_stored_total: Nombre de transactions stockées
+        - node_database_query_duration_seconds: Durée des requêtes PostgreSQL
+      tags:
+        - Monitoring
+      operationId: metrics
+      responses:
+        '200':
+          description: Métriques Prometheus
+          content:
+            text/plain:
+              schema:
+                type: string
+                example: |
+                  # HELP node_blocks_validated_total Number of blocks validated
+                  # TYPE node_blocks_validated_total counter
+                  node_blocks_validated_total 156
+                  
+                  # HELP node_blocks_rejected_total Number of blocks rejected
+                  # TYPE node_blocks_rejected_total counter
+                  node_blocks_rejected_total 2
+
+components:
+  schemas:
+    BlockSummary:
+      type: object
+      description: Résumé d'un bloc (pour la liste)
+      properties:
+        id:
+          type: integer
+          format: int64
+          description: Identifiant unique du bloc
+          example: 2
+        block_hash:
+          type: string
+          pattern: '^[a-fA-F0-9]{64}$'
+          description: Hash SHA-256 du bloc
+          example: "0000def456789abc123def456789abc123def456789abc123def456789abcdef"
+        previous_hash:
+          type: string
+          pattern: '^[a-fA-F0-9]{64}$'
+          description: Hash du bloc précédent
+          example: "0000abc123456def789abc123456def789abc123456def789abc123456defabc"
+        difficulty:
+          type: integer
+          description: Difficulté du mining
+          example: 4
+        timestamp:
+          type: string
+          format: date-time
+          description: Horodatage de création
+          example: "2024-11-14T11:00:00Z"
+        mined_by:
+          type: string
+          description: Identifiant du mineur
+          example: "miner_node_1"
+        transaction_count:
+          type: integer
+          description: Nombre de transactions dans ce bloc
+          example: 3
+
+    BlockDetail:
+      type: object
+      description: Détails complets d'un bloc (avec transactions)
+      properties:
+        id:
+          type: integer
+          format: int64
+          example: 2
+        block_hash:
+          type: string
+          pattern: '^[a-fA-F0-9]{64}$'
+          example: "0000def456789abc123def456789abc123def456789abc123def456789abcdef"
+        previous_hash:
+          type: string
+          pattern: '^[a-fA-F0-9]{64}$'
+          example: "0000abc123456def789abc123456def789abc123456def789abc123456defabc"
+        nonce:
+          type: integer
+          format: int64
+          description: Nonce utilisé pour le mining
+          example: 45678
+        difficulty:
+          type: integer
+          example: 4
+        timestamp:
+          type: string
+          format: date-time
+          example: "2024-11-14T11:00:00Z"
+        mined_by:
+          type: string
+          example: "miner_node_1"
+        transactions:
+          type: array
+          description: Liste des transactions dans ce bloc
+          items:
+            $ref: '#/components/schemas/TransactionDetail'
+
+    TransactionDetail:
+      type: object
+      description: Détails complets d'une transaction
+      properties:
+        id:
+          type: integer
+          format: int64
+          example: 1
+        tx_hash:
+          type: string
+          pattern: '^[a-fA-F0-9]{64}$'
+          description: Hash SHA-256 de la transaction
+          example: "abc123def456789abc123def456789abc123def456789abc123def456789abcd"
+        sender:
+          type: string
+          description: Adresse de l'émetteur
+          example: "alice"
+        recipient:
+          type: string
+          description: Adresse du destinataire
+          example: "bob"
+        amount:
+          type: number
+          format: double
+          description: Montant transféré
+          example: 10.5
+        status:
+          type: string
+          enum: [pending, confirmed, failed]
+          description: Statut de la transaction
+          example: "confirmed"
+        timestamp:
+          type: string
+          format: date-time
+          description: Horodatage de création
+          example: "2024-11-14T10:30:00Z"
+        block_id:
+          type: integer
+          format: int64
+          nullable: true
+          description: ID du bloc contenant cette transaction (null si pending)
+          example: 2
+        block_hash:
+          type: string
+          pattern: '^[a-fA-F0-9]{64}$'
+          nullable: true
+          description: Hash du bloc contenant cette transaction (null si pending)
+          example: "0000def456789abc123def456789abc123def456789abc123def456789abcdef"
+
+    HealthStatus:
+      type: object
+      required:
+        - status
+      properties:
+        status:
+          type: string
+          enum: [healthy, unhealthy]
+          example: "healthy"
+        timestamp:
+          type: string
+          format: date-time
+          example: "2024-11-14T12:00:00Z"
+
+    ReadinessStatus:
+      type: object
+      required:
+        - status
+      properties:
+        status:
+          type: string
+          enum: [ready, not_ready]
+          example: "ready"
+        checks:
+          type: object
+          properties:
+            postgresql:
+              type: string
+              enum: [connected, disconnected]
+              example: "connected"
+            rabbitmq:
+              type: string
+              enum: [connected, disconnected]
+              example: "connected"
+            queue_accessible:
+              type: boolean
+              example: true
+        timestamp:
+          type: string
+          format: date-time
+          example: "2024-11-14T12:00:00Z"
+
+    Error:
+      type: object
+      required:
+        - error
+      properties:
+        error:
+          type: string
+          description: Message d'erreur
+          example: "Block not found"
+        code:
+          type: string
+          description: Code d'erreur
+          example: "BLOCK_NOT_FOUND"
