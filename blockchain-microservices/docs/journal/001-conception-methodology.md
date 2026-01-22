@@ -446,7 +446,159 @@ User → API Gateway (POST /transactions)
 
 **Statut conception API :** Terminée
 
-**Prochaine étape :** DAG de dépendances (ordre de déploiement des composants)
+## Étape 6 : Diagrammes d'Architecture (C4 Model + DAG)
+
+### Contexte
+
+Après avoir conçu les ADR, le schéma BDD et les contrats d'API, j'ai besoin de **visualiser l'architecture** pour :
+1. Communiquer avec des parties prenantes non-techniques
+2. Documenter les choix techniques de manière visuelle
+3. Identifier les dépendances entre composants
+
+### C4 Model : Qu'est-ce que c'est ?
+
+**C4 = Context, Containers, Components, Code**
+
+C'est une méthode de modélisation d'architecture en **4 niveaux de zoom**, du plus abstrait au plus détaillé.
+
+**Créé par :** Simon Brown
+
+**Objectif :** Permettre à différentes audiences (business, DevOps, développeurs) de comprendre le système à différents niveaux de détail.
+
+---
+
+### Les 4 niveaux C4
+
+#### Niveau 1 : System Context (Contexte Système)
+**Question :** Qui utilise le système ? Avec quels systèmes externes interagit-il ?
+
+**Audience :** Tout le monde (business, managers, non-techniques)
+
+**Ce que ça montre :**
+- Les acteurs externes (User, Prometheus, Grafana)
+- Le système comme une boîte noire
+- Les interactions de haut niveau
+
+**Pourquoi c'est utile :**
+- Vue d'ensemble simple
+- Permet de comprendre le périmètre du système
+- Identification des dépendances externes
+
+---
+
+#### Niveau 2 : Container (Conteneurs)
+**Question :** Quels sont les composants principaux (microservices, BDD, message brokers) ?
+
+**Audience :** Équipe technique (développeurs, DevOps, architectes)
+
+**Ce que ça montre :**
+- Les 5 conteneurs : API Gateway, Miner Service, Node Service, PostgreSQL, RabbitMQ
+- Les technologies utilisées (Rust, PostgreSQL, RabbitMQ)
+- Les flux de communication (HTTPS, AMQP, SQL)
+
+**Pourquoi c'est utile :**
+- Comprendre les choix technologiques
+- Identifier les patterns de communication (sync vs async)
+- Base pour le déploiement Kubernetes
+
+---
+
+#### Niveau 3 : Component (Composants)
+**Question :** Quels sont les modules/classes internes d'un microservice ?
+
+**Audience :** Développeurs
+
+**Non créé dans ce projet** (trop détaillé pour la phase conception)
+
+---
+
+#### Niveau 4 : Code
+**Question :** Diagrammes UML de classes
+
+**Non créé dans ce projet** (niveau implémentation)
+
+---
+
+### Pourquoi j'ai fait le C4 Model ?
+
+**Avant C4 :**
+- J'avais des ADR (texte) et des contrats OpenAPI (technique)
+- Difficile de voir une vue global
+- Compliqué d'expliquer l'architecture à quelqu'un rapidement
+
+**Après C4 :**
+- Vue d'ensemble claire (Niveau 1)
+- Détails techniques disponibles (Niveau 2)
+- Documentation visuelle complète
+
+---
+
+### DAG de Dépendances (Dependency Graph)
+
+**Objectif :** Définir l'ordre de déploiement des composants.
+
+**Question :** Dans quel ordre dois-je démarrer les services pour éviter les erreurs ?
+
+**Ce que j'ai appris :**
+
+**DAG = Directed Acyclic Graph** (Graphe Orienté Acyclique)
+- **Directed :** Les flèches ont une direction (A dépend de B)
+- **Acyclic :** Pas de boucle (pas de dépendance circulaire)
+
+**Application concrète :**
+```
+Niveau 0 : PostgreSQL, RabbitMQ (infrastructure)
+Niveau 1 : API Gateway, Miner Service, Node Service (peuvent démarrer en parallèle)
+Niveau 2 : Prometheus, Grafana (observabilité)
+```
+
+**Single Points of Failure (SPOF) identifiés :**
+- PostgreSQL : Si down → blockchain inaccessible
+- RabbitMQ : Si down → transactions bloquées
+
+---
+
+### Outils utilisés
+
+**Mermaid :**
+- Syntaxe simple pour diagrammes
+- S'affiche automatiquement sur GitHub
+- Support C4 natif
+
+**Exemple de code Mermaid pour C4 :**
+```mermaid
+C4Context
+    Person(user, "Utilisateur")
+    System(blockchain, "Plateforme Blockchain")
+    Rel(user, blockchain, "Soumet transactions")
+```
+
+---
+
+### Livrables créés
+
+**Emplacement :** `/docs/architecture/diagrams/`
+
+- `c4-level1-system-context.md` - Vue externe (4 acteurs)
+- `c4-level2-container.md` - Vue interne (5 conteneurs détaillés)
+- `dependency-graph.md` - DAG avec stratégies de déploiement
+- `dependency-graph.svg` - Image SVG du DAG
+
+---
+
+### Ce que je comprends maintenant
+
+- C4 Model : 4 niveaux de zoom pour différentes audiences
+- Niveau 1 (Context) : Vue business/non-technique
+- Niveau 2 (Container) : Vue technique/DevOps
+- DAG : Graphe de dépendances pour ordre de déploiement
+- SPOF : Identification des points critiques et mitigation
+- Mermaid : Diagrammes as code (versionnable, s'affiche sur GitHub)
+
+**Statut diagrammes architecture :** Terminé
+
+**Prochaine étape :** Phase Infrastructure (Proxmox + Kubernetes Talos)
+
 
 ---
 
