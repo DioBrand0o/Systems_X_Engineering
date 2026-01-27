@@ -1,113 +1,86 @@
-# ADR-004 : Choix de la solution de stockage Kubernetes
+# ADR-003: Rook-Ceph comme solution de stockage
 
 ## Contexte
 
-Le projet blockchain nécessite du stockage persistant pour PostgreSQL (base de données ACID).
-
-**Besoins identifiés :**
-- Block storage (RWO - ReadWriteOnce)
-- Dynamic provisioning (pas de création manuelle de PV)
-- Réplication des données (haute disponibilité)
-- Performance suffisante pour PostgreSQL
-- Production-ready (CNCF reconnu)
+Besoin de stockage persistant avec réplication pour PostgreSQL sur Kubernetes.
 
 ## Options considérées
 
-### Option 1 : Longhorn (CNCF Incubating)
-**Avantages :**
-- Simple à installer et configurer
-- UI graphique intuitive
+### Option 1: Longhorn
+**Avantages:**
+- Simple à installer
+- UI graphique
 - Backup S3 intégré
-- Communauté active (Rancher)
 
-**Inconvénients :**
-- **Nécessite extensions Talos** (iscsi-tools, util-linux-tools)
-- Problèmes réseau rencontrés avec Factory Images
-- Moins mature que Rook-Ceph
+**Inconvénients:**
+- Nécessite extensions Talos (iscsi-tools)
+- Problèmes réseau avec Factory Images
+- CNCF Incubating (moins mature)
 
-### Option 2 : Rook-Ceph (CNCF Graduated)
-**Avantages :**
-- **CNCF Graduated** (seul projet stockage graduated)
+### Option 2: Rook-Ceph
+**Avantages:**
+- CNCF Graduated (seul projet stockage)
+- Production-ready (Red Hat, banques)
 - Multi-protocole (block, file, object)
-- Très mature et utilisé en production (Red Hat OpenShift)
-- Excellente documentation
-- Pas besoin d'extensions Talos spécifiques
+- Compatible Talos vanilla
 
-**Inconvénients :**
-- Plus complexe à configurer (CRUSH maps, OSDs)
-- **Consomme plus de ressources** (MONs, MGRs, OSDs)
-- Courbe d'apprentissage plus longue
+**Inconvénients:**
+- Plus complexe
+- Consomme plus de ressources
+- Courbe d'apprentissage
 
-### Option 3 : OpenEBS (CNCF Sandbox)
-**Avantages :**
-- Multi-engine (Jiva, cStor, Mayastor)
-- Flexible
-- Pas d'extensions Talos requises
+### Option 3: OpenEBS
+**Avantages:**
+- Multi-engine flexible
 
-**Inconvénients :**
-- Moins mature que Rook-Ceph (Sandbox)
-- Documentation moins exhaustive
+**Inconvénients:**
+- CNCF Sandbox (moins mature)
+- Documentation limitée
 
-### Option 4 : local-path-provisioner
-**Avantages :**
-- Ultra simple (2 min installation)
-- Léger
+### Option 4: local-path-provisioner
+**Avantages:**
+- Ultra simple
 
-**Inconvénients :**
-- **Pas de réplication** (données sur 1 seul node)
-- **Pas production-ready**
+**Inconvénients:**
+- Pas de réplication
+- Pas production-ready
 
 ## Décision
 
-**Rook-Ceph (Option 2)**
+**Rook-Ceph**
 
-**Raisons :**
-1. **CNCF Graduated** → Standard industrie reconnu
-2. **Expérience professionnelle valorisable** → Compétence demandée en entreprise
-3. **Production-ready** → Utilisé par Red Hat, Telcos, Banques
-4. **Compatible Talos vanilla** → Pas besoin de Factory Images problématiques
-5. **Multi-protocole** → Évolutif si besoin de CephFS ou S3 plus tard
+**Raisons:**
+1. CNCF Graduated = standard industrie
+2. Production-ready = compétence valorisable
+3. Compatible Talos vanilla = pas de workaround
+4. Multi-protocole = évolutif
+5. Haute disponibilité = réplication native
 
 ## Conséquences
 
 ### Positives
-- Cluster production-like dans mon homelab
-- Compétence Rook-Ceph pour CV/entretiens
-- Stockage répliqué et haute disponibilité
+- Stockage distribué et répliqué
 - Dynamic provisioning opérationnel
+- Compétence demandée en entreprise
+- Évolutif (block → file → object)
 
 ### Trade-offs acceptés
-- **Ressources augmentées** : Workers passés de 2 vCPU / 4 GB à 6 vCPU / 12 GB
-- **Complexité** : Nécessite compréhension de Ceph (MONs, OSDs, MGRs)
-- **Temps d'installation** : 2h vs 5 min pour local-path
+- Workers augmentés: 2 vCPU/4GB → 6 vCPU/12GB
+- Complexité opérationnelle accrue
+- Temps installation: 2h vs 5min (local-path)
 
+## Métriques de validation
 
-```
-
-**Configuration cluster :**
-- 2 MONs (monitors Ceph)
-- 2 OSDs (Object Storage Daemons sur `/dev/sdb`)
-- 1 MGR (manager)
-- Réplication : size=2, min_size=1
-- StorageClass : `ceph-block` (default)
-
-## Évolution future
-
-**Si passage à 3 workers :**
-- Modifier `mon.count: 3` dans values.yaml
-- Ajouter 1 OSD automatiquement
-- Réplication = 3 (haute disponibilité complète)
-
-**Si besoin de CephFS (ReadWriteMany) :**
-- Activer MDS (Metadata Server) dans Helm values
-- StorageClass `ceph-filesystem` déjà disponible
+- Cluster Ceph: HEALTH_OK
+- Dynamic provisioning: PVC → Bound < 10s
+- Réplication: 2x (size=2, min_size=1)
+- Performance: Latence < 10ms
 
 ## Références
 
 - [Rook Documentation](https://rook.io/docs/rook/latest/)
 - [Ceph Documentation](https://docs.ceph.com/)
-- [CNCF Graduated Projects](https://www.cncf.io/projects/)
-- [Talos Rook Guide](https://www.talos.dev/v1.10/kubernetes-guides/configuration/storage/)
+- [CNCF Projects](https://www.cncf.io/projects/)
 
 ## Date
 
@@ -115,4 +88,4 @@ Le projet blockchain nécessite du stockage persistant pour PostgreSQL (base de 
 
 ## Statut
 
-✅ **Accepté et implémenté**
+Accepté et implémenté
