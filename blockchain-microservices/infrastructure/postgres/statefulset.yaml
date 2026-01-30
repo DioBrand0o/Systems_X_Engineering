@@ -26,6 +26,12 @@ spec:
       labels:
         app: postgres
     spec:
+      securityContext:
+        runAsNonRoot: true
+        runAsUser: 999           # UID PostgreSQL officiel
+        fsGroup: 999             # GID PostgreSQL officiel
+        seccompProfile:
+          type: RuntimeDefault
       containers:
       - name: postgres
         image: postgres:16
@@ -42,6 +48,13 @@ spec:
             secretKeyRef:
               name: postgres-secret
               key: password
+        - name: PGDATA
+          value: /var/lib/postgresql/data/pgdata
+        securityContext:
+          allowPrivilegeEscalation: false
+          capabilities:
+            drop:
+            - ALL
         volumeMounts:
         - name: postgres-data
           mountPath: /var/lib/postgresql/data
