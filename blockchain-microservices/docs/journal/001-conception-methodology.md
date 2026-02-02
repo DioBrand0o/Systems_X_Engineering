@@ -599,6 +599,36 @@ C4Context
 
 **Prochaine étape :** Phase Infrastructure (Proxmox + Kubernetes Talos)
 
+Étape 7 : Phase Infrastructure (Proxmox + Kubernetes Talos)
+
+Prochaine étape : Implémenter l'infrastructure avec Terraform
+Après la phase conception (terminée à 100%), je passe à l'infra.
+
+1ère étape : Infrastructure as Code avec Proxmox
+J'ai commencé par préparer Proxmox pour Terraform :
+
+Créer l'utilisateur Terraform avec les bonnes permissions
+Trouver l'image Talos (officielle ou custom via Factory)
+Configurer les cloud-init pour les templates
+Réfléchir à une structure facilement configurable et multi-environnements (respecter les 12 Factors)
+
+Une fois tout ça fait, j'ai créé les modules Terraform et un repo GitLab pour stocker le code de manière générique.
+2ème étape : Validation build et bootstrap
+
+Une fois le build validé et le bootstrap aussi, j'ai testé :
+
+Des YAML SQL
+Les volumes
+La persistance des données
+
+Tests OK 
+3ème étape : Passage au GitOps avec ArgoCD
+Maintenant que l'infra fonctionne, je passe sur du GitOps avec ArgoCD et des ApplicationSets dans un autre repo.
+Résumé de mes repos :
+
+1 repo Terraform (privé) avec mes helm custom + code infra
+1 repo GitOps ArgoCD (privé) : manifests Kubernetes
+1 repo projet blockchain-microservices (public) : explication du projet, ADRs, documentation
 
 ---
 
